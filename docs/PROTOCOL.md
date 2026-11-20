@@ -20,7 +20,9 @@ The final field is `STA` when joined to a router or `AP` in setup-hotspot mode. 
 | `LEAVE\n` | `OK leave\n` | Release the slot. |
 | Unknown command | `ERR command\n` | Command not recognized. |
 
-Slots expire after **10 seconds** without a valid keep-alive. The maximum slot count is configurable from **1 to 3**. A registration is identified by the client's IPv4 address **and UDP source port**.
+Slots expire after **10 seconds** without a valid keep-alive. The maximum slot count is configurable from **1 to 10**. A registration is identified by the client's IPv4 address **and UDP source port**.
+
+The board also accepts `GET STATE\n`, returning `STATE BOARD 1 VOL <0..100> MUTE <0|1> PLAYING <0|1> NEXT 0 PREV 0\n`. `SRC VOL <0..100>\n`, `SRC MUTE <0|1>\n`, and `SRC PLAYPAUSE\n` change the board's outgoing stream. Pausing sends silence while keeping listeners connected. Skip is unavailable because LINEIN carries audio only.
 
 ## Audio datagram
 

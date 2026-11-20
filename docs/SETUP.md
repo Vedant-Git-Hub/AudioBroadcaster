@@ -21,7 +21,7 @@ idf.py build
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
-Replace the serial device with your actual port (`COMx` on Windows). The project includes the custom board defaults in `sdkconfig.defaults`; ESP-IDF downloads the mDNS component declared in `main/idf_component.yml`. `idf.py menuconfig` → **Audio broadcaster** controls the hotspot name/password, listener limit (1–3), UDP port, and optional silence gate. Use `idf.py reconfigure` after changing Kconfig options if a new option is not reflected in the generated `sdkconfig`.
+Replace the serial device with your actual port (`COMx` on Windows). The project includes the custom board defaults in `sdkconfig.defaults`; ESP-IDF downloads the mDNS component declared in `main/idf_component.yml`. `idf.py menuconfig` → **Audio broadcaster** controls the hotspot name/password, listener limit (1–10), UDP port, and optional silence gate. Use `idf.py reconfigure` after changing Kconfig options if a new option is not reflected in the generated `sdkconfig`.
 
 The default hotspot is `A1S-Audio`, password `audiobridge`. On first boot, connect a phone to that hotspot and open **http://audiobridge.local/** or **http://192.168.4.1/**. Enter the router's 2.4 GHz SSID and password. The board stores both in ESP32 NVS and restarts. A normal reboot or firmware flash preserves them; **Forget saved Wi-Fi** on the setup page or a flash erase removes them. If the router connection fails after five retries, the board returns to the setup hotspot. The green LED is steady when the router is connected and blinks otherwise.
 
@@ -50,7 +50,7 @@ Connect the phone to the router network and tap **Start listening**. The app sen
 | LED keeps blinking after setup | Confirm the saved SSID is the 2.4 GHz network and the password is correct. Rejoin `A1S-Audio` to update them. |
 | Setup page does not open | Stay on `A1S-Audio`; try `http://192.168.4.1/` if `.local` resolution fails. |
 | App cannot find board | Put phone and board on the same LAN; disable router client isolation. Check that UDP port 45678 is allowed locally. |
-| Fourth listener fails | The default limit is three. Existing listener slots expire after ten seconds without keep-alives. |
+| Eleventh listener fails | The default limit is ten. Existing listener slots expire after ten seconds without keep-alives. |
 | Playback stutters | Check Wi-Fi signal and congestion. The app logs received packets, missing packets, queue drops, and AudioTrack underruns every ten seconds under tag `A1S receiver`. UDP cannot retransmit a late frame. |
 | Loud source sounds distorted | Reduce the level feeding LINEIN, or use suitable analog attenuation. Once the input clips, the app cannot restore the peaks. |
 | Very quiet audio disappears | Lower or disable the optional firmware silence gate in `menuconfig`. It trades quiet-source noise suppression for sensitivity to soft passages. |

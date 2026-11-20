@@ -1,6 +1,6 @@
 # ESP32-A1S firmware
 
-This ESP-ADF application captures the Ai-Thinker Audio Kit V2.2 A149 **LINEIN** jack and sends 48 kHz, 16-bit stereo PCM over UDP to up to three registered listeners. See the repository [setup guide](../docs/SETUP.md), [architecture](../docs/ARCHITECTURE.md), and [wire protocol](../docs/PROTOCOL.md).
+This ESP-ADF application captures the Ai-Thinker Audio Kit V2.2 A149 **LINEIN** jack and sends 48 kHz, 16-bit stereo PCM over UDP to up to ten registered listeners. See the repository [setup guide](../docs/SETUP.md), [architecture](../docs/ARCHITECTURE.md), and [wire protocol](../docs/PROTOCOL.md).
 
 ## Build
 
@@ -19,7 +19,7 @@ Use the serial port for your machine. `main/idf_component.yml` declares the Espr
 
 ## Configuration
 
-`idf.py menuconfig` → **Audio broadcaster** provides the existing Wi-Fi SSID/password fallback, setup hotspot name/password, maximum listener count (1–3), UDP port (default 45678), and optional silence gate. The board creates a setup hotspot when no router credentials exist. The HTTP form at **http://audiobridge.local/** saves router credentials to NVS; the board attempts that router on every boot and returns to its hotspot after five failed retries. GPIO22 drives the green LED: steady on when connected to the router, blinking otherwise.
+`idf.py menuconfig` → **Audio broadcaster** provides the existing Wi-Fi SSID/password fallback, setup hotspot name/password, maximum listener count (1–10), UDP port (default 45678), and optional silence gate. The board creates a setup hotspot when no router credentials exist. The HTTP form at **http://audiobridge.local/** saves router credentials to NVS; the board attempts that router on every boot and returns to its hotspot after five failed retries. GPIO22 drives the green LED: steady on when connected to the router, blinking otherwise.
 
 The silence gate is enabled by default with an average PCM threshold of 900 over a 100 ms window. It mutes measured low-level LINEIN noise when the source is quiet, with short fades between states. For best preservation of very soft source passages, lower its threshold or disable it. Input samples that clip at the ES8388 ADC cannot be recovered later in firmware or the Android app.
 

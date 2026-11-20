@@ -18,8 +18,8 @@ menu "Audio broadcaster"
 
     config BROADCAST_MAX_LISTENERS
         int "Maximum simultaneous listeners"
-        range 1 3
-        default 3
+        range 1 10
+        default 10
 
     config BROADCAST_UDP_PORT
         int "UDP control/audio port"

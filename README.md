@@ -1,8 +1,8 @@
 # AudioBroadcaster
 
-AudioBroadcaster sends a stereo line-level source from an **Ai-Thinker ESP32-A1S Audio Kit V2.2 (A149)** to up to three Android listeners over Wi-Fi. The firmware uses ESP-ADF to capture the board's **LINEIN** jack. The Android 10+ app discovers the board automatically and plays audio through the phone's selected media output while a foreground notification provides a **Stop** action.
+AudioBroadcaster sends a stereo line-level source from an **Ai-Thinker ESP32-A1S Audio Kit V2.2 (A149)** to up to ten Android listeners over Wi-Fi. The firmware uses ESP-ADF to capture the board's **LINEIN** jack. The Android 10+ app discovers the board automatically and plays audio through the phone's selected media output while a foreground notification provides **Pause**, **Mute**, and **Stop** actions.
 
-The transport is **UDP**, carrying uncompressed 48 kHz, 16-bit stereo PCM. The original ESP32 on this board does not support LE Audio broadcast/Auracast; the app uses Wi-Fi so ordinary Android phones can receive the stream.
+The transport is **per-listener UDP**, carrying uncompressed 48 kHz, 16-bit stereo PCM. The board controls stream volume, mute, and pause; an analog LINEIN connection cannot provide skip control. The original ESP32 on this board does not support LE Audio broadcast/Auracast; the app uses Wi-Fi so ordinary Android phones can receive the stream.
 
 ## Quick start
 
@@ -23,7 +23,7 @@ The board retries a saved Wi-Fi network five times and returns to its setup hots
 
 ## Current status
 
-Firmware has been flashed on an A149 board. Audio transmission, the setup webpage, mDNS hostname, and UDP discovery have been exercised. The Android app has been installed on a Samsung phone and produced audible playback. Three listener sockets were tested from one computer; three separate phones and end-to-end latency have **not** been measured. Occasional stuttering and source input clipping remain areas for further testing. The firmware's optional silence gate can suppress low-level noise but may mute very quiet passages.
+Firmware has been flashed on an A149 board. Audio transmission, the setup webpage, mDNS hostname, and UDP discovery have been exercised. The Android app has been installed on a Samsung phone and produced audible playback. Ten listener registrations were verified from one computer; simultaneous audio quality across ten phones and end-to-end latency have **not** been measured. Occasional stuttering and source input clipping remain areas for further testing. The firmware's optional silence gate can suppress low-level noise but may mute very quiet passages.
 
 ## License
 

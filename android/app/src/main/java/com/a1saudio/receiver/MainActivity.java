@@ -9,6 +9,8 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -16,6 +18,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
@@ -26,6 +29,40 @@ public class MainActivity extends Activity {
     private static final int GREEN = Color.rgb(107, 239, 163);
     private static final int RED = Color.rgb(255, 91, 104);
     private static final int MAGENTA = Color.rgb(234, 71, 202);
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private TextView sourceStatus;
+    private TextView volumeLabel;
+    private SeekBar volumeSlider;
+    private Button previousButton;
+    private Button playButton;
+    private Button nextButton;
+    private Button muteButton;
+    private boolean sliding;
+    private final Runnable refresh = new Runnable() {
+        @Override public void run() {
+            if (sourceStatus != null) {
+                sourceStatus.setText(!AudioService.isListening ? "Start listening to connect" :
+                        AudioService.sourceOnline ? "AudioBridge board connected" : "Waiting for AudioBridge board");
+                sourceStatus.setTextColor(AudioService.sourceOnline ? GREEN : MUTED);
+                if (!sliding) {
+                    volumeSlider.setProgress(Math.min(100, AudioService.sourceVolume));
+                    volumeLabel.setText("Board stream volume  " + AudioService.sourceVolume + "%");
+                }
+                playButton.setText(AudioService.sourcePlaying ? "❚❚  Pause" : "▶  Play");
+                muteButton.setText(AudioService.sourceMuted ? "Unmute" : "Mute");
+                previousButton.setEnabled(AudioService.sourceOnline && AudioService.sourceCanPrevious);
+                nextButton.setEnabled(AudioService.sourceOnline && AudioService.sourceCanNext);
+                playButton.setEnabled(AudioService.sourceOnline);
+                muteButton.setEnabled(AudioService.sourceOnline);
+                volumeSlider.setEnabled(AudioService.sourceOnline);
+            }
+            handler.postDelayed(this, 1000);
+        }
+    };
+
+    private void control(String action) {
+        startService(new Intent(this, AudioService.class).setAction(action));
+    }
 
     private int dp(int value) {
         return (int)(value * getResources().getDisplayMetrics().density + 0.5f);
@@ -102,6 +139,64 @@ public class MainActivity extends Activity {
         card.addView(description, descriptionParams);
         content.addView(card);
 
+        LinearLayout controls = new LinearLayout(this);
+        controls.setOrientation(LinearLayout.VERTICAL);
+        controls.setPadding(dp(18), dp(18), dp(18), dp(18));
+        controls.setBackground(rounded(CARD, 20));
+        LinearLayout.LayoutParams controlsParams = new LinearLayout.LayoutParams(-1, -2);
+        controlsParams.topMargin = dp(18);
+        content.addView(controls, controlsParams);
+        TextView controlsTitle = text("AUDIOBRIDGE CONTROLS", 13, MAGENTA);
+        controlsTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        controls.addView(controlsTitle);
+        sourceStatus = text("Start listening to connect", 15, MUTED);
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
+        statusParams.topMargin = dp(8);
+        controls.addView(sourceStatus, statusParams);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(48));
+        rowParams.topMargin = dp(14);
+        controls.addView(row, rowParams);
+        previousButton = button("◀◀", MAGENTA, WHITE,
+                v -> control(AudioService.ACTION_PREVIOUS));
+        playButton = button("▶  Play", GREEN, BACKGROUND,
+                v -> control(AudioService.ACTION_PLAY_PAUSE));
+        nextButton = button("▶▶", MAGENTA, WHITE,
+                v -> control(AudioService.ACTION_NEXT));
+        row.addView(previousButton, new LinearLayout.LayoutParams(0, -1, 1));
+        LinearLayout.LayoutParams middle = new LinearLayout.LayoutParams(0, -1, 2);
+        middle.setMargins(dp(7), 0, dp(7), 0);
+        row.addView(playButton, middle);
+        row.addView(nextButton, new LinearLayout.LayoutParams(0, -1, 1));
+        muteButton = button("Mute", RED, WHITE, v -> control(AudioService.ACTION_MUTE));
+        LinearLayout.LayoutParams muteParams = new LinearLayout.LayoutParams(-1, dp(44));
+        muteParams.topMargin = dp(10);
+        controls.addView(muteButton, muteParams);
+        volumeLabel = text("Board stream volume  100%", 15, WHITE);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-1, -2);
+        labelParams.topMargin = dp(15);
+        controls.addView(volumeLabel, labelParams);
+        volumeSlider = new SeekBar(this);
+        volumeSlider.setMax(100);
+        volumeSlider.setProgressTintList(android.content.res.ColorStateList.valueOf(GREEN));
+        volumeSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(MAGENTA));
+        controls.addView(volumeSlider, new LinearLayout.LayoutParams(-1, dp(44)));
+        volumeSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onStartTrackingTouch(SeekBar bar) { sliding = true; }
+            @Override public void onProgressChanged(SeekBar bar, int value, boolean fromUser) {
+                if (fromUser) volumeLabel.setText("Board stream volume  " + value + "%");
+            }
+            @Override public void onStopTrackingTouch(SeekBar bar) {
+                sliding = false;
+                startService(new Intent(MainActivity.this, AudioService.class)
+                        .setAction(AudioService.ACTION_VOLUME)
+                        .putExtra(AudioService.EXTRA_VOLUME, bar.getProgress()));
+            }
+        });
+        TextView sourceHint = text("Volume, mute, and pause control audio on the board. Skip requires a control link to the LINEIN source.", 12, MUTED);
+        controls.addView(sourceHint);
+
         Button start = button("▶   Start listening", GREEN, BACKGROUND, v -> {
             Intent intent = new Intent(this, AudioService.class);
             intent.setAction(AudioService.ACTION_START);
@@ -142,5 +237,11 @@ public class MainActivity extends Activity {
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS}, 1);
         }
+        handler.post(refresh);
+    }
+
+    @Override public void onDestroy() {
+        handler.removeCallbacks(refresh);
+        super.onDestroy();
     }
 }

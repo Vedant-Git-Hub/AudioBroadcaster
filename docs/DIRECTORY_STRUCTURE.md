@@ -16,7 +16,7 @@ AudioBroadcaster/
 │   ├── dependencies.lock         Pinned ESP component versions
 │   ├── README.md                 Firmware configuration notes
 │   ├── main/
-│   │   ├── main.c                Audio capture, listener slots, UDP streaming
+│   │   ├── main.c                Audio capture, ten listener slots, UDP streaming
 │   │   ├── network.c             Wi-Fi, NVS, setup page, mDNS, LED status
 │   │   ├── network.h             Network interface for the audio task
 │   │   ├── Kconfig.projbuild     Menuconfig options

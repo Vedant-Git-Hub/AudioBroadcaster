@@ -176,7 +176,7 @@ static void configure_ap(void)
     ap.ap.ssid_len = strlen((char *)ap.ap.ssid);
     strncpy((char *)ap.ap.password, CONFIG_BROADCAST_AP_PASSWORD, sizeof(ap.ap.password) - 1);
     ap.ap.authmode = WIFI_AUTH_WPA2_PSK;
-    ap.ap.max_connection = CONFIG_BROADCAST_MAX_LISTENERS;
+    ap.ap.max_connection = 10; // ESP32 SoftAP hardware/driver limit.
     ap.ap.channel = 1;
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap));
