@@ -1,0 +1,25 @@
+# Local notes and audio captured during hardware testing
+/PROJECT_BRIEF.md
+/artifacts/
+
+# ESP-IDF / ESP-ADF generated files and machine-specific configuration
+/firmware/build/
+/firmware/managed_components/
+/firmware/sdkconfig
+/firmware/sdkconfig.old
+/firmware/.idf_component_manager_lock
+/firmware/tools/__pycache__/
+
+# Android / Gradle generated files
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/local.properties
+*.apk
+*.aab
+*.iml
+
+# Editor and OS files
+.idea/
+.DS_Store
+*.swp

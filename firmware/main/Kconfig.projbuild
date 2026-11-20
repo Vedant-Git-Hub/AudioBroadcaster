@@ -1,0 +1,39 @@
+menu "Audio broadcaster"
+
+    config BROADCAST_WIFI_SSID
+        string "Existing Wi-Fi SSID (leave empty to create board hotspot)"
+        default ""
+
+    config BROADCAST_WIFI_PASSWORD
+        string "Wi-Fi password"
+        default ""
+
+    config BROADCAST_AP_SSID
+        string "Board hotspot SSID"
+        default "A1S-Audio"
+
+    config BROADCAST_AP_PASSWORD
+        string "Board hotspot password (at least 8 characters)"
+        default "audiobridge"
+
+    config BROADCAST_MAX_LISTENERS
+        int "Maximum simultaneous listeners"
+        range 1 3
+        default 3
+
+    config BROADCAST_UDP_PORT
+        int "UDP control/audio port"
+        range 1024 65535
+        default 45678
+
+    config BROADCAST_SILENCE_GATE
+        bool "Mute low-level LINEIN noise when source is quiet"
+        default y
+
+    config BROADCAST_SILENCE_THRESHOLD
+        int "Silence gate open threshold (average PCM magnitude)"
+        depends on BROADCAST_SILENCE_GATE
+        range 100 5000
+        default 900
+
+endmenu
