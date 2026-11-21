@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/scripts/common.sh"
+
+port="${AUDIOBRIDGE_ESP_PORT:-}"
+case "${1:-}" in
+    '') ;;
+    --port)
+        if [[ $# -ne 2 || -z "$2" ]]; then
+            printf 'Usage: %s [--port /dev/ttyUSB0]\n' "$0" >&2
+            exit 2
+        fi
+        port="$2"
+        shift 2
+        ;;
+    *) printf 'Usage: %s [--port /dev/ttyUSB0]\n' "$0" >&2; exit 2 ;;
+esac
+if [[ $# -ne 0 ]]; then
+    printf 'Usage: %s [--port /dev/ttyUSB0]\n' "$0" >&2
+    exit 2
+fi
+
+if [[ -z "$port" ]]; then
+    candidates=()
+    shopt -s nullglob
+    for candidate in /dev/serial/by-id/*; do
+        name="${candidate##*/}"
+        if [[ "$name" =~ (Silicon_Labs|CP210|CH340|CH341|FTDI|USB_Serial|QinHeng|wch) ]]; then
+            candidates+=("$candidate")
+        fi
+    done
+    if ((${#candidates[@]} == 0)); then
+        candidates=(/dev/ttyUSB*)
+    fi
+    if ((${#candidates[@]} != 1)); then
+        printf 'Expected one USB serial adapter, found %d. Connect the board to UART / POWER or pass --port.\n' "${#candidates[@]}" >&2
+        if ((${#candidates[@]})); then printf 'Candidates: %s\n' "${candidates[*]}" >&2; fi
+        exit 1
+    fi
+    port="${candidates[0]}"
+fi
+if [[ ! -c "$port" || ! -r "$port" || ! -w "$port" ]]; then
+    printf 'Serial port %s is unavailable or not readable/writable. Check the cable and dialout group.\n' "$port" >&2
+    exit 1
+fi
+
+printf 'Flashing ESP32 on %s\n' "$port"
+"$PROJECT_ROOT/build_ef"
+load_firmware_tools
+idf.py -C "$PROJECT_ROOT/firmware" -p "$port" flash

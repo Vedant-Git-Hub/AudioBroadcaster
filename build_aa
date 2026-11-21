@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/scripts/common.sh"
+
+release=false
+case "${1:-}" in
+    '') ;;
+    --release) release=true; shift ;;
+    *) printf 'Usage: %s [--release]\n' "$0" >&2; exit 2 ;;
+esac
+if [[ $# -ne 0 ]]; then
+    printf 'Usage: %s [--release]\n' "$0" >&2
+    exit 2
+fi
+
+load_android_tools
+if "$release"; then
+    (cd "$PROJECT_ROOT/android" && ./gradlew bundleRelease)
+    printf '\nRelease bundle built: %s/android/app/build/outputs/bundle/release/app-release.aab\n' "$PROJECT_ROOT"
+else
+    (cd "$PROJECT_ROOT/android" && ./gradlew assembleDebug)
+    printf '\nDebug APK built: %s/android/app/build/outputs/apk/debug/app-debug.apk\n' "$PROJECT_ROOT"
+fi

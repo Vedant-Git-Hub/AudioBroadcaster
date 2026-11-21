@@ -10,6 +10,10 @@
 
 ## Firmware
 
+On an x86_64 Ubuntu host, run `./setup_host` from the repository root once. It installs and verifies both toolchains. Then use `./build_ef` to build and `./flash_ef` to build and flash the connected board. The flash script detects a single USB serial adapter; use `./flash_ef --port /dev/ttyUSB0` to choose one explicitly. See [host scripts](HOST_SCRIPTS.md) for all options.
+
+For manual builds or other hosts, use the following commands:
+
 Install ESP-IDF **5.4.1** and a compatible ESP-ADF checkout. The tested environment used ESP-ADF `v2.7-183-g01488579`. Set up the ESP-IDF toolchain as directed by Espressif, then build from this repository:
 
 ```sh
@@ -26,6 +30,10 @@ Replace the serial device with your actual port (`COMx` on Windows). The project
 The default hotspot is `A1S-Audio`, password `audiobridge`. On first boot, connect a phone to that hotspot and open **http://audiobridge.local/** or **http://192.168.4.1/**. Enter the router's 2.4 GHz SSID and password. The board stores both in ESP32 NVS and restarts. A normal reboot or firmware flash preserves them; **Forget saved Wi-Fi** on the setup page or a flash erase removes them. If the router connection fails after five retries, the board returns to the setup hotspot. The green LED is steady when the router is connected and blinks otherwise.
 
 ## Android app
+
+On the configured Ubuntu host, use `./build_aa` to build the debug APK and `./flash_aa` to build and install it on the single connected ADB device. Use `./build_aa --release` for the Play release bundle. See [host scripts](HOST_SCRIPTS.md).
+
+For a manual build, follow these commands:
 
 Install **JDK 17** and the **Android SDK platform 36**. From the repository:
 

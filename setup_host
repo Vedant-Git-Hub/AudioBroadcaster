@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/scripts/common.sh"
+
+skip_system=false
+case "${1:-}" in
+    '') ;;
+    --skip-system-packages) skip_system=true; shift ;;
+    *) printf 'Usage: %s [--skip-system-packages]\n' "$0" >&2; exit 2 ;;
+esac
+if [[ $# -ne 0 ]]; then
+    printf 'Usage: %s [--skip-system-packages]\n' "$0" >&2
+    exit 2
+fi
+
+if [[ "$(uname -s)" != Linux || ! -f /etc/os-release ]]; then
+    echo 'This setup script supports Ubuntu Linux hosts.' >&2
+    exit 1
+fi
+source /etc/os-release
+if [[ "${ID:-}" != ubuntu ]]; then
+    echo 'This setup script supports Ubuntu Linux hosts.' >&2
+    exit 1
+fi
+if [[ "$(uname -m)" != x86_64 ]]; then
+    echo 'The pinned Android command-line-tools download requires an x86_64 Linux host.' >&2
+    exit 1
+fi
+
+if ! "$skip_system"; then
+    packages=(ca-certificates git curl wget unzip zip python3 python3-pip
+              python3-venv python3-dev python3-setuptools build-essential
+              cmake ninja-build ccache flex bison gperf pkg-config
+              libffi-dev libssl-dev libusb-1.0-0 dfu-util openjdk-17-jdk
+              android-sdk-platform-tools-common)
+    missing=()
+    for package in "${packages[@]}"; do
+        if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -qx 'install ok installed'; then
+            missing+=("$package")
+        fi
+    done
+    if ((${#missing[@]})); then
+        if ((EUID == 0)); then apt=(apt-get); else apt=(sudo apt-get); fi
+        "${apt[@]}" update
+        "${apt[@]}" install -y "${missing[@]}"
+    fi
+    if getent group dialout >/dev/null && ! id -nG | tr ' ' '\n' | grep -qx dialout; then
+        if ((EUID == 0)); then
+            usermod -aG dialout "${SUDO_USER:-$(id -un)}"
+        else
+            sudo usermod -aG dialout "$(id -un)"
+        fi
+        echo 'Serial-port group updated; log out and back in if flash_ef reports permission denied.'
+    fi
+else
+    echo 'Skipping system package and serial-group changes for this setup check.'
+fi
+
+mkdir -p "$TOOLCHAIN_ROOT"
+if [[ ! -d "$IDF_DIR" ]]; then
+    git clone --branch v5.4.1 --recursive https://github.com/espressif/esp-idf.git "$IDF_DIR"
+fi
+if [[ "$(git -C "$IDF_DIR" rev-parse HEAD)" != "$IDF_COMMIT" ]]; then
+    printf 'Existing ESP-IDF at %s is not the tested v5.4.1 commit. Set AUDIOBRIDGE_IDF_PATH to a separate location.\n' "$IDF_DIR" >&2
+    exit 1
+fi
+git -C "$IDF_DIR" submodule update --init --recursive
+"$IDF_DIR/install.sh" esp32
+
+if [[ ! -d "$ADF_DIR" ]]; then
+    git clone https://github.com/espressif/esp-adf.git "$ADF_DIR"
+    git -C "$ADF_DIR" checkout "$ADF_COMMIT"
+fi
+if [[ "$(git -C "$ADF_DIR" rev-parse HEAD)" != "$ADF_COMMIT" ]]; then
+    printf 'Existing ESP-ADF at %s is not the tested commit. Set AUDIOBRIDGE_ADF_PATH to a separate location.\n' "$ADF_DIR" >&2
+    exit 1
+fi
+git -C "$ADF_DIR" submodule update --init --recursive
+
+sdkmanager="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+if [[ ! -x "$sdkmanager" ]]; then
+    if [[ -e "$SDK_DIR/cmdline-tools/latest" ]]; then
+        printf 'Incomplete Android command-line tools at %s; move that directory before retrying.\n' "$SDK_DIR/cmdline-tools/latest" >&2
+        exit 1
+    fi
+    temporary="$(mktemp -d)"
+    trap 'rm -rf -- "$temporary"' EXIT
+    cli_zip="$temporary/commandlinetools.zip"
+    curl --fail --location --retry 3 --output "$cli_zip" \
+        https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip
+    expected_sha=4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583
+    printf '%s  %s\n' "$expected_sha" "$cli_zip" | sha256sum --check --status || {
+        echo 'Android command-line tools checksum mismatch.' >&2
+        exit 1
+    }
+    unzip -q "$cli_zip" -d "$temporary/unpacked"
+    mkdir -p "$SDK_DIR/cmdline-tools"
+    mv "$temporary/unpacked/cmdline-tools" "$SDK_DIR/cmdline-tools/latest"
+fi
+
+export ANDROID_HOME="$SDK_DIR"
+export ANDROID_SDK_ROOT="$SDK_DIR"
+"$sdkmanager" --sdk_root="$SDK_DIR" --licenses < <(yes) >/dev/null
+"$sdkmanager" --sdk_root="$SDK_DIR" \
+    'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' < <(yes)
+
+echo 'Building both projects to verify every dependency is available.'
+"$PROJECT_ROOT/build_ef"
+"$PROJECT_ROOT/build_aa"
+printf '\nHost setup complete. Firmware and Android debug APK built successfully.\n'

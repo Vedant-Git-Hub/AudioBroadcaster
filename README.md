@@ -6,6 +6,8 @@ The transport is **per-listener UDP**, carrying uncompressed 48 kHz, 16-bit ster
 
 ## Quick start
 
+On an x86_64 Ubuntu host, run `./setup_host` once. Then use `./build_ef` and `./flash_ef` for the board, or `./build_aa` and `./flash_aa` for the Android app. The flash scripts build first and select a single connected device automatically. See [host setup and script options](docs/HOST_SCRIPTS.md).
+
 1. Connect a stereo line-level source to **LINEIN**. Set the board's five DIP switches **OFF** and connect USB to **UART / POWER**.
 2. [Build and flash the firmware](docs/SETUP.md#firmware). On first boot, join its `A1S-Audio` hotspot using password `audiobridge`.
 3. Open **http://audiobridge.local/** (or **http://192.168.4.1/**) while connected to the hotspot. Save the credentials for your **2.4 GHz** router network. The board restarts and saves them in NVS. Its green LED stays lit when connected and blinks when disconnected or in setup mode.

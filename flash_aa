@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/scripts/common.sh"
+
+serial="${AUDIOBRIDGE_ANDROID_SERIAL:-}"
+case "${1:-}" in
+    '') ;;
+    --serial)
+        if [[ $# -ne 2 || -z "$2" ]]; then
+            printf 'Usage: %s [--serial ADB_SERIAL]\n' "$0" >&2
+            exit 2
+        fi
+        serial="$2"
+        shift 2
+        ;;
+    *) printf 'Usage: %s [--serial ADB_SERIAL]\n' "$0" >&2; exit 2 ;;
+esac
+if [[ $# -ne 0 ]]; then
+    printf 'Usage: %s [--serial ADB_SERIAL]\n' "$0" >&2
+    exit 2
+fi
+
+load_android_tools
+if [[ -z "$serial" ]]; then
+    mapfile -t devices < <(adb devices | awk 'NR > 1 && $2 == "device" {print $1}')
+    if ((${#devices[@]} != 1)); then
+        printf 'Expected one authorized Android device, found %d. Unlock the phone and allow USB debugging, or pass --serial.\n' "${#devices[@]}" >&2
+        adb devices -l >&2
+        exit 1
+    fi
+    serial="${devices[0]}"
+fi
+if [[ "$(adb -s "$serial" get-state 2>/dev/null)" != device ]]; then
+    printf 'ADB device %s is not authorized or connected.\n' "$serial" >&2
+    exit 1
+fi
+
+printf 'Installing AudioBridge on %s\n' "$serial"
+"$PROJECT_ROOT/build_aa"
+apk="$PROJECT_ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
+if ! adb -s "$serial" install -r "$apk"; then
+    echo 'Installation failed. If a Play-signed copy is installed, Android will not replace it with a debug-signed APK without uninstalling it first.' >&2
+    exit 1
+fi

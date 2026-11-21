@@ -5,12 +5,17 @@ AudioBroadcaster/
 ├── README.md                    Project overview and quick start
 ├── LICENSE                      GPL-3.0 project license
 ├── .gitignore                   Excludes builds, credentials, and local captures
+├── setup_host                   Installs and verifies host toolchains
+├── build_ef / flash_ef          Build and flash ESP32 firmware
+├── build_aa / flash_aa          Build and install Android app
+├── scripts/common.sh            Shared toolchain locations and checks
 ├── docs/
 │   ├── SETUP.md                 Hardware, firmware, and Android setup
 │   ├── ARCHITECTURE.md          Data flow, connection lifecycle, limitations
 │   ├── PROTOCOL.md              UDP discovery, control, and PCM packet format
 │   ├── DIRECTORY_STRUCTURE.md   This file
 │   ├── PRIVACY_POLICY.md        Public app privacy policy
+│   ├── HOST_SCRIPTS.md          Setup and build script instructions
 │   └── play/                    Store listing, release guide, and graphics
 ├── firmware/
 │   ├── CMakeLists.txt            ESP-IDF/ESP-ADF project and board link setup
