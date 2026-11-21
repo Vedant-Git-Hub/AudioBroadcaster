@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -67,6 +68,21 @@ public class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BACKGROUND);
         root.setPadding(dp(24), dp(24), dp(24), dp(16));
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int left, top, right, bottom;
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                left = bars.left; top = bars.top; right = bars.right; bottom = bars.bottom;
+            } else {
+                left = insets.getSystemWindowInsetLeft();
+                top = insets.getSystemWindowInsetTop();
+                right = insets.getSystemWindowInsetRight();
+                bottom = insets.getSystemWindowInsetBottom();
+            }
+            view.setPadding(dp(24) + left, dp(24) + top,
+                    dp(24) + right, dp(16) + bottom);
+            return insets;
+        });
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         LinearLayout content = new LinearLayout(this);
@@ -132,6 +148,13 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
         hintParams.topMargin = dp(16);
         content.addView(hint, hintParams);
+
+        Button privacy = button("Privacy policy", CARD, WHITE,
+                v -> startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/Vedant-Git-Hub/AudioBroadcaster/blob/main/docs/PRIVACY_POLICY.md"))));
+        LinearLayout.LayoutParams privacyParams = new LinearLayout.LayoutParams(-1, dp(48));
+        privacyParams.topMargin = dp(18);
+        content.addView(privacy, privacyParams);
 
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         TextView footer = text("designed by Vedant Bhale", 12, MUTED);

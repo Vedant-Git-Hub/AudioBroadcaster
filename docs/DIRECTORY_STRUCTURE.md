@@ -9,7 +9,9 @@ AudioBroadcaster/
 │   ├── SETUP.md                 Hardware, firmware, and Android setup
 │   ├── ARCHITECTURE.md          Data flow, connection lifecycle, limitations
 │   ├── PROTOCOL.md              UDP discovery, control, and PCM packet format
-│   └── DIRECTORY_STRUCTURE.md   This file
+│   ├── DIRECTORY_STRUCTURE.md   This file
+│   ├── PRIVACY_POLICY.md        Public app privacy policy
+│   └── play/                    Store listing, release guide, and graphics
 ├── firmware/
 │   ├── CMakeLists.txt            ESP-IDF/ESP-ADF project and board link setup
 │   ├── sdkconfig.defaults        Reproducible board and build defaults
@@ -33,6 +35,7 @@ AudioBroadcaster/
     ├── gradlew                   Portable Gradle launcher
     ├── gradle/wrapper/           Pinned Gradle distribution and launcher JAR
     ├── README.md                 Android behavior and build notes
+    ├── tools/make_play_assets.py  Render Play listing graphics
     └── app/
         ├── build.gradle          SDK levels, app ID, and version
         └── src/main/

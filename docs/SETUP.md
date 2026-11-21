@@ -27,7 +27,7 @@ The default hotspot is `A1S-Audio`, password `audiobridge`. On first boot, conne
 
 ## Android app
 
-Install **JDK 17** and the **Android SDK platform 34**. From the repository:
+Install **JDK 17** and the **Android SDK platform 36**. From the repository:
 
 ```sh
 cd android

@@ -20,6 +20,7 @@ The board retries a saved Wi-Fi network five times and returns to its setup hots
 - [UDP control and audio protocol](docs/PROTOCOL.md)
 - [Project directory structure](docs/DIRECTORY_STRUCTURE.md)
 - [Firmware details](firmware/README.md) and [Android app details](android/README.md)
+- [Google Play release preparation](docs/play/RELEASE_GUIDE.md)
 
 ## Current status
 
