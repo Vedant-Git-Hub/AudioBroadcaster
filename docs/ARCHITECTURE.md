@@ -15,7 +15,7 @@ flowchart LR
 
 The firmware reads saved router credentials from NVS on boot. If none exist, it starts the `A1S-Audio` setup hotspot. Its HTTP page is available at `audiobridge.local` through mDNS and at `192.168.4.1`. Saving the form commits the SSID and password to NVS and restarts the board. If a saved network fails after five retries, the hotspot returns so settings can be changed. GPIO22 drives the green status LED: steady on for a router connection, blinking otherwise.
 
-The ES8388 ADC captures LINEIN through its LINE2 input at 48 kHz, 16-bit stereo. ESP-ADF's I2S reader and raw stream feed 240 sample frames (5 ms) at a time to the UDP sender. Each datagram is 976 bytes: a 16-byte header and 960 bytes of PCM. The firmware keeps at most ten listener slots, learned from `JOIN` requests. It sends a separate unicast packet to every active listener. Sending is nonblocking so a slow receiver cannot hold up ADC capture.
+The ES8388 ADC captures LINEIN through its LINE2 input at 48 kHz, 16-bit stereo. ESP-ADF's I2S reader and raw stream feed 240 sample frames (5 ms) at a time into two packet buffers. A separate task sends each 976-byte datagram: a 16-byte header and 960 bytes of PCM. If both buffers are busy, capture replaces the oldest unsent packet to keep latency bounded; the firmware logs the count every 10 seconds. The I2S output ring buffer holds another 1,920 bytes (10 ms). The firmware keeps at most ten listener slots, learned from `JOIN` requests, and sends one unicast copy to every active listener. Sending uses nonblocking socket calls.
 
 ## Android lifecycle
 

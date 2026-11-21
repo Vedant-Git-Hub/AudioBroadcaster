@@ -11,6 +11,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "nvs_flash.h"
@@ -30,10 +31,14 @@
 #define AUDIO_BYTES            (FRAMES_PER_PACKET * CHANNELS * BITS_PER_SAMPLE / 8)
 #define HEADER_BYTES           16
 #define CLIENT_TIMEOUT_US      (10LL * 1000 * 1000)
+#define PACKET_BUFFERS         2
 
 static const char *TAG = "broadcaster";
 static int udp_socket = -1;
 static SemaphoreHandle_t clients_lock;
+static QueueHandle_t free_packets;
+static QueueHandle_t ready_packets;
+static uint8_t packets[PACKET_BUFFERS][HEADER_BYTES + AUDIO_BYTES];
 
 typedef struct {
     struct sockaddr_in address;
@@ -195,17 +200,29 @@ static void suppress_quiet_input(uint8_t *pcm)
 }
 #endif
 
-static void audio_task(void *arg)
+static void capture_task(void *arg)
 {
     audio_element_handle_t raw = arg;
-    uint8_t packet[HEADER_BYTES + AUDIO_BYTES];
-    memcpy(packet, "AUB1", 4);
-    packet[14] = CHANNELS;
-    packet[15] = 1; // Signed 16-bit little-endian interleaved PCM.
     uint32_t sequence = 0;
     uint32_t sample_frame = 0;
+    uint32_t dropped = 0;
+    int64_t last_report = esp_timer_get_time();
 
     while (true) {
+        uint8_t slot;
+        // Keep capture current when Wi-Fi is slow: replace the oldest unsent packet.
+        if (xQueueReceive(free_packets, &slot, 0) != pdTRUE) {
+            if (xQueueReceive(ready_packets, &slot, 0) == pdTRUE) {
+                dropped++;
+            } else {
+                // Sender owns the other buffer; wait for it to release one.
+                xQueueReceive(free_packets, &slot, portMAX_DELAY);
+            }
+        }
+        uint8_t *packet = packets[slot];
+        memcpy(packet, "AUB1", 4);
+        packet[14] = CHANNELS;
+        packet[15] = 1; // Signed 16-bit little-endian interleaved PCM.
         int have = 0;
         while (have < AUDIO_BYTES) {
             int count = raw_stream_read(raw, (char *)packet + HEADER_BYTES + have,
@@ -219,6 +236,7 @@ static void audio_task(void *arg)
             have += count;
         }
         if (have != AUDIO_BYTES) {
+            xQueueSend(free_packets, &slot, portMAX_DELAY);
             continue;
         }
 
@@ -232,7 +250,23 @@ static void audio_task(void *arg)
         packet[12] = (uint8_t)(FRAMES_PER_PACKET >> 8);
         packet[13] = (uint8_t)FRAMES_PER_PACKET;
 
+        xQueueSend(ready_packets, &slot, portMAX_DELAY);
+        int64_t now = esp_timer_get_time();
+        if (now - last_report >= 10LL * 1000 * 1000) {
+            if (dropped) ESP_LOGW(TAG, "Dropped %lu queued audio packets in 10s", (unsigned long)dropped);
+            dropped = 0;
+            last_report = now;
+        }
+    }
+}
+
+static void send_task(void *arg)
+{
+    while (true) {
+        uint8_t slot;
+        xQueueReceive(ready_packets, &slot, portMAX_DELAY);
         if (!network_ready()) {
+            xQueueSend(free_packets, &slot, portMAX_DELAY);
             continue;
         }
         struct sockaddr_in destinations[CONFIG_BROADCAST_MAX_LISTENERS];
@@ -247,9 +281,10 @@ static void audio_task(void *arg)
 
         for (int i = 0; i < count; ++i) {
             // Never hold up capture for a slow or unreachable receiver.
-            sendto(udp_socket, packet, sizeof(packet), MSG_DONTWAIT,
+            sendto(udp_socket, packets[slot], sizeof(packets[slot]), MSG_DONTWAIT,
                    (const struct sockaddr *)&destinations[i], sizeof(destinations[i]));
         }
+        xQueueSend(free_packets, &slot, portMAX_DELAY);
     }
 }
 
@@ -324,8 +359,15 @@ void app_main(void)
     }
 
     audio_element_handle_t raw = start_capture();
+    free_packets = xQueueCreate(PACKET_BUFFERS, sizeof(uint8_t));
+    ready_packets = xQueueCreate(PACKET_BUFFERS, sizeof(uint8_t));
+    if (!free_packets || !ready_packets) abort();
+    for (uint8_t slot = 0; slot < PACKET_BUFFERS; ++slot) {
+        xQueueSend(free_packets, &slot, portMAX_DELAY);
+    }
     if (xTaskCreate(control_task, "control", 4096, NULL, 5, NULL) != pdPASS ||
-        xTaskCreate(audio_task, "audio_send", 6144, raw, 7, NULL) != pdPASS) {
+        xTaskCreate(send_task, "audio_send", 4096, NULL, 8, NULL) != pdPASS ||
+        xTaskCreate(capture_task, "audio_capture", 4096, raw, 7, NULL) != pdPASS) {
         abort();
     }
     ESP_LOGI(TAG, "Streaming 48 kHz stereo PCM, port %d, max listeners %d",
