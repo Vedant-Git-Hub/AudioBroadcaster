@@ -23,7 +23,7 @@ The board retries a saved Wi-Fi network five times and returns to its setup hots
 
 ## Current status
 
-Firmware has been flashed on an A149 board. Audio transmission, the setup webpage, mDNS hostname, and UDP discovery have been exercised. The Android app has been installed on a Samsung phone and produced audible playback. Ten listener registrations were verified from one computer; simultaneous audio quality across ten phones and end-to-end latency have **not** been measured. Occasional stuttering and source input clipping remain areas for further testing. The firmware's optional silence gate can suppress low-level noise but may mute very quiet passages.
+Firmware has been flashed on an A149 board. Audio transmission, the setup webpage, mDNS hostname, and UDP discovery have been exercised. The Android app has been installed on a Samsung phone and produced audible playback. Ten listener registrations were verified from one computer; simultaneous audio quality across ten phones and end-to-end latency have **not** been measured. With capture and sending pinned to core 1, one phone logged zero missing packets in three consecutive 10-second windows. Adding a computer listener still caused packet gaps on both devices at the tested Wi-Fi signal (ESP32 RSSI around −71 dBm). Source input clipping remains an area for testing. The firmware's optional silence gate can suppress low-level noise but may mute very quiet passages.
 
 ## License
 

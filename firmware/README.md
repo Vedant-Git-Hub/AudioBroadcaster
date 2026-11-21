@@ -23,9 +23,9 @@ Use the serial port for your machine. `main/idf_component.yml` declares the Espr
 
 The silence gate is enabled by default with an average PCM threshold of 900 over a 100 ms window. It mutes measured low-level LINEIN noise when the source is quiet, with short fades between states. For best preservation of very soft source passages, lower its threshold or disable it. Input samples that clip at the ES8388 ADC cannot be recovered later in firmware or the Android app.
 
-Capture and Wi-Fi sending run in separate tasks with two 5 ms packet buffers. When both are occupied, capture replaces the oldest unsent packet rather than accumulating delay. The firmware logs queued packet drops every 10 seconds when they occur. The ESP-ADF I2S output ring buffer remains 1,920 bytes (10 ms).
+Capture and Wi-Fi sending run in separate tasks pinned to core 1 with four 5 ms packet buffers. When all are occupied, capture replaces the oldest unsent packet rather than accumulating delay. The firmware logs queued packet drops and sender statistics every 10 seconds. The ESP-ADF I2S output ring buffer remains 1,920 bytes (10 ms). The Wi-Fi driver is configured for up to 64 dynamic TX buffers.
 
-On the tested router, a 10-second desktop capture still found packet gaps after this change. Two buffers help separate capture from sending but do not compensate for sustained Wi-Fi congestion or sender throughput limits; inspect both the firmware drop log and receiver sequence gaps when tuning latency.
+On the tested router, one Android listener showed zero missing packets over three consecutive 10-second windows after core pinning. A simultaneous computer listener still caused packet gaps on both receivers, even in a window with no socket send errors. More packet buffers alone cannot guarantee lossless delivery over UDP/Wi-Fi; inspect firmware sender statistics, signal strength, and receiver sequence gaps when tuning multiple listeners.
 
 ## Desktop capture
 

@@ -14,6 +14,8 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_system.h"
+#include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
 
@@ -31,7 +33,7 @@
 #define AUDIO_BYTES            (FRAMES_PER_PACKET * CHANNELS * BITS_PER_SAMPLE / 8)
 #define HEADER_BYTES           16
 #define CLIENT_TIMEOUT_US      (10LL * 1000 * 1000)
-#define PACKET_BUFFERS         2
+#define PACKET_BUFFERS         4
 
 static const char *TAG = "broadcaster";
 static int udp_socket = -1;
@@ -262,6 +264,10 @@ static void capture_task(void *arg)
 
 static void send_task(void *arg)
 {
+    uint32_t packets_sent = 0, send_errors = 0, max_send_us = 0;
+    uint64_t total_send_us = 0;
+    int last_errno = 0;
+    int64_t last_report = esp_timer_get_time();
     while (true) {
         uint8_t slot;
         xQueueReceive(ready_packets, &slot, portMAX_DELAY);
@@ -279,12 +285,36 @@ static void send_task(void *arg)
         }
         xSemaphoreGive(clients_lock);
 
+        int64_t begin = esp_timer_get_time();
         for (int i = 0; i < count; ++i) {
             // Never hold up capture for a slow or unreachable receiver.
-            sendto(udp_socket, packets[slot], sizeof(packets[slot]), MSG_DONTWAIT,
-                   (const struct sockaddr *)&destinations[i], sizeof(destinations[i]));
+            if (sendto(udp_socket, packets[slot], sizeof(packets[slot]), MSG_DONTWAIT,
+                       (const struct sockaddr *)&destinations[i], sizeof(destinations[i])) < 0) {
+                send_errors++;
+                last_errno = errno;
+            }
         }
+        uint32_t elapsed = (uint32_t)(esp_timer_get_time() - begin);
+        if (elapsed > max_send_us) max_send_us = elapsed;
+        total_send_us += elapsed;
+        packets_sent++;
         xQueueSend(free_packets, &slot, portMAX_DELAY);
+        int64_t now = esp_timer_get_time();
+        if (now - last_report >= 10LL * 1000 * 1000) {
+            int rssi = -127;
+            wifi_phy_mode_t phy = 0;
+            esp_wifi_sta_get_rssi(&rssi);
+            esp_wifi_sta_get_negotiated_phymode(&phy);
+            ESP_LOGI(TAG, "send/10s packets=%lu listeners=%d errors=%lu last_errno=%d avg_us=%lu max_us=%lu heap=%lu rssi=%d phy=%d",
+                     (unsigned long)packets_sent, count, (unsigned long)send_errors, last_errno,
+                     (unsigned long)(packets_sent ? total_send_us / packets_sent : 0),
+                     (unsigned long)max_send_us, (unsigned long)esp_get_free_heap_size(),
+                     rssi, (int)phy);
+            packets_sent = send_errors = max_send_us = 0;
+            total_send_us = 0;
+            last_errno = 0;
+            last_report = now;
+        }
     }
 }
 
@@ -366,8 +396,8 @@ void app_main(void)
         xQueueSend(free_packets, &slot, portMAX_DELAY);
     }
     if (xTaskCreate(control_task, "control", 4096, NULL, 5, NULL) != pdPASS ||
-        xTaskCreate(send_task, "audio_send", 4096, NULL, 8, NULL) != pdPASS ||
-        xTaskCreate(capture_task, "audio_capture", 4096, raw, 7, NULL) != pdPASS) {
+        xTaskCreatePinnedToCore(send_task, "audio_send", 4096, NULL, 8, NULL, 1) != pdPASS ||
+        xTaskCreatePinnedToCore(capture_task, "audio_capture", 4096, raw, 7, NULL, 1) != pdPASS) {
         abort();
     }
     ESP_LOGI(TAG, "Streaming 48 kHz stereo PCM, port %d, max listeners %d",

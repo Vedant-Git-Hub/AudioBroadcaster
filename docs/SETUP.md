@@ -51,7 +51,7 @@ Connect the phone to the router network and tap **Start listening**. The app sen
 | Setup page does not open | Stay on `A1S-Audio`; try `http://192.168.4.1/` if `.local` resolution fails. |
 | App cannot find board | Put phone and board on the same LAN; disable router client isolation. Check that UDP port 45678 is allowed locally. |
 | Eleventh listener fails | The default limit is ten. Existing listener slots expire after ten seconds without keep-alives. |
-| Playback stutters | Check Wi-Fi signal and congestion. The app logs received packets, missing packets, queue drops, and AudioTrack underruns every ten seconds under tag `A1S receiver`. UDP cannot retransmit a late frame. |
+| Playback stutters | Check Wi-Fi signal and congestion. The app logs received packets, missing packets, queue drops, and AudioTrack underruns every ten seconds under tag `A1S receiver`. Firmware logs queued drops, socket send errors, RSSI, and free heap every ten seconds. On the tested router, one listener ran without sequence gaps after core pinning; two still showed gaps at about −71 dBm. UDP has no retransmission in this version. |
 | Loud source sounds distorted | Reduce the level feeding LINEIN, or use suitable analog attenuation. Once the input clips, the app cannot restore the peaks. |
 | Very quiet audio disappears | Lower or disable the optional firmware silence gate in `menuconfig`. It trades quiet-source noise suppression for sensitivity to soft passages. |
 
