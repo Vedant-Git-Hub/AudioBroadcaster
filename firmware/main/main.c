@@ -34,10 +34,6 @@
 static const char *TAG = "broadcaster";
 static int udp_socket = -1;
 static SemaphoreHandle_t clients_lock;
-static SemaphoreHandle_t controls_lock;
-static int output_volume = 100;
-static bool output_muted;
-static bool output_paused;
 
 typedef struct {
     struct sockaddr_in address;
@@ -93,38 +89,6 @@ static void control_task(void *arg)
             snprintf(response, sizeof(response), "HERE AUB1 48000 2 16 240 %d %s\n",
                      CONFIG_BROADCAST_UDP_PORT, network_mode_label());
             reply_to(&peer, response);
-            continue;
-        }
-        int value;
-        char extra;
-        if (strcmp(message, "GET STATE\n") == 0) {
-            char response[80];
-            xSemaphoreTake(controls_lock, portMAX_DELAY);
-            snprintf(response, sizeof(response), "STATE BOARD 1 VOL %d MUTE %d PLAYING %d NEXT 0 PREV 0\n",
-                     output_volume, output_muted ? 1 : 0, output_paused ? 0 : 1);
-            xSemaphoreGive(controls_lock);
-            reply_to(&peer, response);
-            continue;
-        }
-        if (sscanf(message, "SRC VOL %d%c", &value, &extra) == 2 && extra == '\n' && value >= 0 && value <= 100) {
-            xSemaphoreTake(controls_lock, portMAX_DELAY);
-            output_volume = value;
-            xSemaphoreGive(controls_lock);
-            reply_to(&peer, "OK volume\n");
-            continue;
-        }
-        if (sscanf(message, "SRC MUTE %d%c", &value, &extra) == 2 && extra == '\n' && (value == 0 || value == 1)) {
-            xSemaphoreTake(controls_lock, portMAX_DELAY);
-            output_muted = value == 1;
-            xSemaphoreGive(controls_lock);
-            reply_to(&peer, "OK mute\n");
-            continue;
-        }
-        if (strcmp(message, "SRC PLAYPAUSE\n") == 0) {
-            xSemaphoreTake(controls_lock, portMAX_DELAY);
-            output_paused = !output_paused;
-            xSemaphoreGive(controls_lock);
-            reply_to(&peer, "OK playpause\n");
             continue;
         }
         const bool join = strcmp(message, "JOIN\n") == 0;
@@ -262,21 +226,6 @@ static void audio_task(void *arg)
         suppress_quiet_input(packet + HEADER_BYTES);
 #endif
 
-        xSemaphoreTake(controls_lock, portMAX_DELAY);
-        int gain = output_volume;
-        bool silent = output_muted || output_paused;
-        xSemaphoreGive(controls_lock);
-        if (silent || gain == 0) {
-            memset(packet + HEADER_BYTES, 0, AUDIO_BYTES);
-        } else if (gain < 100) {
-            for (int i = HEADER_BYTES; i < HEADER_BYTES + AUDIO_BYTES; i += 2) {
-                int16_t sample = (int16_t)((uint16_t)packet[i] | ((uint16_t)packet[i + 1] << 8));
-                int16_t scaled = (int16_t)((int32_t)sample * gain / 100);
-                packet[i] = (uint8_t)scaled;
-                packet[i + 1] = (uint8_t)((uint16_t)scaled >> 8);
-            }
-        }
-
         put_u32(packet + 4, sequence++);
         put_u32(packet + 8, sample_frame);
         sample_frame += FRAMES_PER_PACKET;
@@ -352,8 +301,7 @@ void app_main(void)
     ESP_ERROR_CHECK(err);
 
     clients_lock = xSemaphoreCreateMutex();
-    controls_lock = xSemaphoreCreateMutex();
-    if (!clients_lock || !controls_lock) {
+    if (!clients_lock) {
         abort();
     }
     network_start();

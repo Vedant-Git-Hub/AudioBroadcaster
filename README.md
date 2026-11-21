@@ -1,8 +1,8 @@
 # AudioBroadcaster
 
-AudioBroadcaster sends a stereo line-level source from an **Ai-Thinker ESP32-A1S Audio Kit V2.2 (A149)** to up to ten Android listeners over Wi-Fi. The firmware uses ESP-ADF to capture the board's **LINEIN** jack. The Android 10+ app discovers the board automatically and plays audio through the phone's selected media output while a foreground notification provides **Pause**, **Mute**, and **Stop** actions.
+AudioBroadcaster sends a stereo line-level source from an **Ai-Thinker ESP32-A1S Audio Kit V2.2 (A149)** to up to ten Android listeners over Wi-Fi. The firmware uses ESP-ADF to capture the board's **LINEIN** jack. The Android 10+ app discovers the board automatically and plays audio through the phone's selected media output while a foreground notification provides a **Stop** action.
 
-The transport is **per-listener UDP**, carrying uncompressed 48 kHz, 16-bit stereo PCM. The board controls stream volume, mute, and pause; an analog LINEIN connection cannot provide skip control. The original ESP32 on this board does not support LE Audio broadcast/Auracast; the app uses Wi-Fi so ordinary Android phones can receive the stream.
+The transport is **per-listener UDP**, carrying uncompressed 48 kHz, 16-bit stereo PCM. The original ESP32 on this board does not support LE Audio broadcast/Auracast; the app uses Wi-Fi so ordinary Android phones can receive the stream.
 
 ## Quick start
 

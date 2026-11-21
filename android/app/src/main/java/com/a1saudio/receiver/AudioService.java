@@ -31,12 +31,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AudioService extends Service {
     public static final String ACTION_START = "com.a1saudio.receiver.START";
     public static final String ACTION_STOP = "com.a1saudio.receiver.STOP";
-    public static final String ACTION_PLAY_PAUSE = "com.a1saudio.receiver.PLAY_PAUSE";
-    public static final String ACTION_NEXT = "com.a1saudio.receiver.NEXT";
-    public static final String ACTION_PREVIOUS = "com.a1saudio.receiver.PREVIOUS";
-    public static final String ACTION_MUTE = "com.a1saudio.receiver.MUTE";
-    public static final String ACTION_VOLUME = "com.a1saudio.receiver.VOLUME";
-    public static final String EXTRA_VOLUME = "source_volume";
     private static final String CHANNEL = "audio_playback";
     private static final int NOTIFICATION_ID = 1;
     private static final int PORT = 45678;
@@ -46,10 +40,6 @@ public class AudioService extends Service {
     private static final byte[] SILENCE = new byte[PCM_BYTES];
     private volatile boolean running;
     private volatile DatagramSocket socket;
-    private volatile InetAddress boardAddress;
-    public static volatile boolean isListening, sourceOnline, sourcePlaying = true, sourceMuted;
-    public static volatile boolean sourceCanNext, sourceCanPrevious;
-    public static volatile int sourceVolume = 100;
     private Thread worker;
     private PowerManager.WakeLock wakeLock;
 
@@ -61,27 +51,11 @@ public class AudioService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (intent != null && intent.getAction() != null && !ACTION_START.equals(intent.getAction())) {
-            String action = intent.getAction();
-            String command = null;
-            if (ACTION_PLAY_PAUSE.equals(action)) command = "SRC PLAYPAUSE\n";
-            else if (ACTION_MUTE.equals(action)) command = sourceMuted ? "SRC MUTE 0\n" : "SRC MUTE 1\n";
-            else if (ACTION_VOLUME.equals(action)) {
-                int value = intent.getIntExtra(EXTRA_VOLUME, 100);
-                if (value >= 0 && value <= 100) command = "SRC VOL " + value + "\n";
-            }
-            if (command != null && socket != null && boardAddress != null) {
-                try { send(socket, boardAddress, command); }
-                catch (Exception e) { Log.w("A1S receiver", "Control failed", e); }
-            }
-            return START_NOT_STICKY;
-        }
         if (running) return START_NOT_STICKY;
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel(CHANNEL, "Audio playback", NotificationManager.IMPORTANCE_LOW));
         startForeground(NOTIFICATION_ID, notification("Finding AudioBridge on Wi-Fi"));
         running = true;
-        isListening = true;
         PowerManager power = getSystemService(PowerManager.class);
         wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "A1SAudio:receive");
         wakeLock.acquire();
@@ -90,12 +64,10 @@ public class AudioService extends Service {
         return START_NOT_STICKY;
     }
 
-    private PendingIntent serviceAction(String action, int code) {
-        return PendingIntent.getService(this, code, new Intent(this, AudioService.class).setAction(action),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-    }
-
     private Notification notification(String status) {
+        Intent stop = new Intent(this, AudioService.class).setAction(ACTION_STOP);
+        PendingIntent stopAction = PendingIntent.getService(this, 1, stop,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Intent open = new Intent(this, MainActivity.class);
         PendingIntent openAction = PendingIntent.getActivity(this, 0, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -104,12 +76,8 @@ public class AudioService extends Service {
                 .setContentTitle("AudioBridge")
                 .setContentText(status)
                 .setContentIntent(openAction)
-                .addAction(new Notification.Action.Builder(sourcePlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
-                        sourcePlaying ? "Pause stream" : "Resume stream", serviceAction(ACTION_PLAY_PAUSE, 2)).build())
-                .addAction(new Notification.Action.Builder(android.R.drawable.ic_lock_silent_mode,
-                        sourceMuted ? "Unmute" : "Mute", serviceAction(ACTION_MUTE, 3)).build())
                 .addAction(new Notification.Action.Builder(android.R.drawable.ic_media_pause,
-                        "Stop", serviceAction(ACTION_STOP, 1)).build())
+                        "Stop", stopAction).build())
                 .setOngoing(true).build();
     }
 
@@ -213,8 +181,6 @@ public class AudioService extends Service {
                 updateStatus("Finding AudioBridge on Wi-Fi");
                 board = discover(current, network);
                 if (board == null) continue;
-                boardAddress = board;
-                sourceOnline = true;
                 current.setSoTimeout(1000);
                 current.setReceiveBufferSize(256 * 1024);
                 send(current, board, "JOIN\n");
@@ -258,7 +224,6 @@ public class AudioService extends Service {
                 player.start();
                 updateStatus("Playing from AudioBridge");
                 long lastKeep = System.currentTimeMillis();
-                long lastState = 0;
                 long lastAudio = lastKeep;
                 long lastReport = lastKeep;
                 long expected = -1;
@@ -266,21 +231,9 @@ public class AudioService extends Service {
                 while (running && session.get()) {
                     long now = System.currentTimeMillis();
                     if (now - lastKeep >= 3000) { send(current, board, "KEEP\n"); lastKeep = now; }
-                    if (now - lastState >= 2000) { send(current, board, "GET STATE\n"); lastState = now; }
                     if (now - lastAudio > 3000) break;
                     try { packet.setLength(bytes.length); current.receive(packet); }
                     catch (java.net.SocketTimeoutException ignored) { continue; }
-                    if (packet.getAddress().equals(board) && packet.getLength() < 120) {
-                        String state = new String(bytes, 0, packet.getLength(), StandardCharsets.US_ASCII);
-                        String[] fields = state.trim().split("\\s+");
-                        if (fields.length == 13 && fields[0].equals("STATE") && fields[1].equals("BOARD")) {
-                            sourceOnline = true;
-                            sourceVolume = Integer.parseInt(fields[4]);
-                            sourceMuted = fields[6].equals("1");
-                            sourcePlaying = fields[8].equals("1");
-                            updateStatus(sourcePlaying ? "Streaming from AudioBridge" : "AudioBridge stream paused");
-                        }
-                    }
                     if (!packet.getAddress().equals(board) || packet.getPort() != PORT ||
                             packet.getLength() != 976 || bytes[0] != 'A' || bytes[1] != 'U' ||
                             bytes[2] != 'B' || bytes[3] != '1' ||
@@ -330,8 +283,6 @@ public class AudioService extends Service {
                     current.close();
                 }
                 socket = null;
-                boardAddress = null;
-                sourceOnline = false;
             }
             retryDelay();
         }
@@ -348,8 +299,6 @@ public class AudioService extends Service {
 
     private void stopListening() {
         running = false;
-        isListening = false;
-        sourceOnline = false;
         DatagramSocket current = socket;
         if (current != null) current.close();
         if (worker != null) worker.interrupt();

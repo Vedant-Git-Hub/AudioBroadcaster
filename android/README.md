@@ -19,7 +19,3 @@ Android 13+ asks for notification permission. Connect the phone to the same Wi-F
 The service uses one UDP socket for discovery, registration, keep-alives, and audio. It binds that socket to Wi-Fi, so cellular data can remain available. A receive thread validates packets and places PCM into a bounded queue; a playback thread writes them to `AudioTrack`. The app retries discovery after a network disconnect. It logs received packets, missing packets, queue drops, and `AudioTrack` underruns every ten seconds under logcat tag **A1S receiver**.
 
 The bounded queue smooths short Wi-Fi timing variations, but UDP delivery is not guaranteed. Received PCM is played without compression; missing packets are filled briefly with silence. The board's analog input must not clip if faithful source reproduction is required. The current build has a red, green, and magenta interface, launcher and notification icons, and a footer credit.
-
-## Board controls
-
-The app slider changes the board's transmitted PCM gain. Mute and play/pause act on the board stream and are available in the notification. Pause transmits silence and does not stop the analog source. Skip is disabled because LINEIN has no media-control channel. The phone volume buttons still control local playback volume.
